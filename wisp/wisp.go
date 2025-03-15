@@ -192,7 +192,7 @@ func (c *wispConn) handleDataPacket(stream *wispStream) {
 			}
 
 			if stream.streamType == streamTypeTCP {
-				if stream.bufferRemaining == 0 {
+				if stream.bufferRemaining == 1 {
 					stream.bufferRemaining = c.config.DefaultBufferRemaining
 					c.sendContinuePacket(stream.streamId, c.config.DefaultBufferRemaining)
 				} else {
