@@ -2,12 +2,9 @@ package wisp
 
 import (
 	"encoding/binary"
-	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"sync"
-	"sync/atomic"
 
 	"github.com/gorilla/websocket"
 )
@@ -23,14 +20,14 @@ type Config struct {
 func CreateWispHandler(config Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-		conn, err := upgrader.Upgrade(w, r, nil)
+		wsConn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer wsConn.Close()
 
-		wispConnection := &wispConn{
-			wsConn:  conn,
+		wispConnection := &wispConnection{
+			wsConn:  wsConn,
 			streams: make(map[uint32]*wispStream),
 			config:  config,
 		}
@@ -39,7 +36,7 @@ func CreateWispHandler(config Config) http.HandlerFunc {
 		wispConnection.sendContinuePacket(0, config.BufferRemainingLength)
 
 		for {
-			_, message, err := conn.ReadMessage()
+			_, message, err := wsConn.ReadMessage()
 			if err != nil {
 				return
 			}
@@ -49,7 +46,7 @@ func CreateWispHandler(config Config) http.HandlerFunc {
 	}
 }
 
-type wispConn struct {
+type wispConnection struct {
 	wsConn  *websocket.Conn
 	wsMutex sync.Mutex
 
@@ -59,57 +56,25 @@ type wispConn struct {
 	config Config
 }
 
-type wispStream struct {
-	streamId        uint32
-	streamType      uint8
-	conn            net.Conn
-	bufferRemaining uint32
-
-	dataPackets      [][]byte
-	dataPacketsMutex sync.Mutex
-
-	ready           atomic.Bool
-	connEstablished chan bool
-	isSendingData   atomic.Bool
-}
-
-func (c *wispConn) handlePacket(message []byte) {
-	if len(message) < 5 {
+func (c *wispConnection) handlePacket(packet []byte) {
+	if len(packet) < 5 {
 		return
 	}
-	packetType, streamId, payload := parseWispPacket(message)
+	packetType, streamId, payload := parseWispPacket(packet)
 
 	switch packetType {
 	case packetTypeConnect:
-		stream := &wispStream{
-			streamId:        streamId,
-			connEstablished: make(chan bool, 1),
-		}
-
-		c.streamsMutex.Lock()
-		c.streams[streamId] = stream
-		c.streamsMutex.Unlock()
-
-		go c.handleConnectPacket(stream, payload)
+		c.handleConnectPacket(streamId, payload)
 	case packetTypeData:
-		c.streamsMutex.RLock()
-		stream, exists := c.streams[streamId]
-		c.streamsMutex.RUnlock()
-		if exists {
-			stream.dataPacketsMutex.Lock()
-			stream.dataPackets = append(stream.dataPackets, payload)
-			stream.dataPacketsMutex.Unlock()
-
-			go c.handleDataPacket(stream)
-		}
+		c.handleDataPacket(streamId, payload)
 	case packetTypeClose:
-		go c.handleClosePacket(streamId, payload)
+		c.handleClosePacket(streamId, payload)
 	default:
 		return
 	}
 }
 
-func (c *wispConn) handleConnectPacket(stream *wispStream, payload []byte) {
+func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 	if len(payload) < 3 {
 		return
 	}
@@ -117,95 +82,51 @@ func (c *wispConn) handleConnectPacket(stream *wispStream, payload []byte) {
 	port := strconv.FormatUint(uint64(binary.LittleEndian.Uint16(payload[1:3])), 10)
 	hostname := string(payload[3:])
 
-	if _, blacklisted := c.config.Blacklist.Hostnames[hostname]; blacklisted {
-		stream.connEstablished <- false
-		c.endWispStream(stream.streamId, closeReasonBlocked)
-		return
+	stream := &wispStream{
+		wispConn:        c,
+		streamId:        streamId,
+		connEstablished: make(chan bool, 1),
 	}
 
-	stream.streamType = streamType
-	stream.bufferRemaining = c.config.BufferRemainingLength
+	c.streamsMutex.Lock()
+	c.streams[streamId] = stream
+	c.streamsMutex.Unlock()
 
-	var err error
-	switch streamType {
-	case streamTypeTCP:
-		stream.conn, err = net.Dial("tcp", net.JoinHostPort(hostname, port))
-	case streamTypeUDP:
-		if c.config.DisableUDP {
-			stream.connEstablished <- false
-			c.endWispStream(stream.streamId, closeReasonBlocked)
-			return
-		}
-		stream.conn, err = net.Dial("udp", net.JoinHostPort(hostname, port))
-	default:
-		return
-	}
-
-	if err != nil {
-		stream.connEstablished <- false
-		c.endWispStream(stream.streamId, closeReasonNetworkError)
-		return
-	}
-
-	stream.connEstablished <- true
-	stream.ready.Store(true)
-
-	c.readFromNetConn(stream.streamId, stream.conn)
+	go stream.handleConnect(streamType, port, hostname)
 }
 
-func (c *wispConn) handleDataPacket(stream *wispStream) {
-	if stream.isSendingData.Load() {
+func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
+	c.streamsMutex.RLock()
+	stream, exists := c.streams[streamId]
+	c.streamsMutex.RUnlock()
+	if !exists {
+		c.sendClosePacket(streamId, closeReasonInvalidInfo)
 		return
 	}
-	stream.isSendingData.Store(true)
-	defer stream.isSendingData.Store(false)
+	stream.dataQueueMutex.Lock()
+	stream.dataQueue = append(stream.dataQueue, payload)
+	stream.dataQueueMutex.Unlock()
 
-	if !stream.ready.Load() {
-		if !<-stream.connEstablished {
-			return
-		}
-	}
-
-	for {
-		stream.dataPacketsMutex.Lock()
-		dataPackets := stream.dataPackets
-		stream.dataPackets = stream.dataPackets[:0]
-		stream.dataPacketsMutex.Unlock()
-		if len(dataPackets) == 0 {
-			break
-		}
-
-		for _, packet := range dataPackets {
-			_, err := stream.conn.Write(packet)
-			if err != nil {
-				c.endWispStream(stream.streamId, closeReasonNetworkError)
-			}
-
-			if stream.streamType == streamTypeTCP {
-				if stream.bufferRemaining == 1 {
-					stream.bufferRemaining = c.config.BufferRemainingLength
-					c.sendContinuePacket(stream.streamId, c.config.BufferRemainingLength)
-				} else {
-					stream.bufferRemaining--
-				}
-			}
-		}
-	}
+	go stream.handleData()
 }
 
-func (c *wispConn) handleClosePacket(streamId uint32, payload []byte) {
+func (c *wispConnection) handleClosePacket(streamId uint32, payload []byte) {
+	c.streamsMutex.RLock()
+	stream, exists := c.streams[streamId]
+	c.streamsMutex.RUnlock()
+	if !exists {
+		return
+	}
+
 	if len(payload) < 1 {
 		return
 	}
 	closeReason := payload[0]
-	_ = closeReason
 
-	c.streamsMutex.Lock()
-	c.deleteWispStream(streamId)
-	c.streamsMutex.Unlock()
+	go stream.handleClose(closeReason)
 }
 
-func (c *wispConn) sendPacket(packet []byte) {
+func (c *wispConnection) sendPacket(packet []byte) {
 	c.wsMutex.Lock()
 	defer c.wsMutex.Unlock()
 	if err := c.wsConn.WriteMessage(websocket.BinaryMessage, packet); err != nil {
@@ -213,66 +134,27 @@ func (c *wispConn) sendPacket(packet []byte) {
 	}
 }
 
-func (c *wispConn) sendClosePacket(streamId uint32, reason uint8) {
-	packet := createWispPacket(packetTypeClose, streamId, []byte{reason})
+func (c *wispConnection) sendDataPacket(streamId uint32, data []byte) {
+	packet := createWispPacket(packetTypeData, streamId, data)
 	c.sendPacket(packet)
 }
 
-func (c *wispConn) sendDataPacket(streamId uint32, payload []byte) {
-	packet := createWispPacket(packetTypeData, streamId, payload)
-	c.sendPacket(packet)
-}
-
-func (c *wispConn) sendContinuePacket(streamId uint32, bufferRemaining uint32) {
+func (c *wispConnection) sendContinuePacket(streamId uint32, bufferRemaining uint32) {
 	payload := make([]byte, 4)
 	binary.LittleEndian.PutUint32(payload, bufferRemaining)
 	packet := createWispPacket(packetTypeContinue, streamId, payload)
 	c.sendPacket(packet)
 }
 
-func (c *wispConn) deleteWispStream(streamId uint32) {
-	stream, exists := c.streams[streamId]
-	if exists {
-		if stream.ready.Load() {
-			stream.conn.Close()
-		}
-		delete(c.streams, streamId)
-	}
+func (c *wispConnection) sendClosePacket(streamId uint32, reason uint8) {
+	packet := createWispPacket(packetTypeClose, streamId, []byte{reason})
+	c.sendPacket(packet)
 }
 
-func (c *wispConn) deleteAllWispStreams() {
+func (c *wispConnection) deleteAllWispStreams() {
 	c.streamsMutex.Lock()
 	for streamId := range c.streams {
-		c.deleteWispStream(streamId)
+		delete(c.streams, streamId)
 	}
 	c.streamsMutex.Unlock()
-}
-
-func (c *wispConn) endWispStream(streamId uint32, reason uint8) {
-	c.streamsMutex.Lock()
-	c.deleteWispStream(streamId)
-	c.streamsMutex.Unlock()
-
-	c.sendClosePacket(streamId, reason)
-}
-
-func (c *wispConn) readFromNetConn(streamId uint32, conn net.Conn) {
-	var closeReason uint8
-
-	buffer := make([]byte, 4096)
-	for {
-		n, err := conn.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				closeReason = closeReasonVoluntary
-			} else {
-				closeReason = closeReasonNetworkError
-			}
-			break
-		}
-
-		c.sendDataPacket(streamId, buffer[:n])
-	}
-
-	c.endWispStream(streamId, closeReason)
 }
