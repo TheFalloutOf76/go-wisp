@@ -150,14 +150,7 @@ func (c *wispConn) handleConnectPacket(stream *wispStream, payload []byte) {
 	stream.connEstablished <- true
 	stream.ready.Store(true)
 
-	var closeReason uint8
-	if err := stream.readFromNetConn(c); err == io.EOF {
-		closeReason = closeReasonVoluntary
-	} else {
-		closeReason = closeReasonNetworkError
-	}
-
-	c.endWispStream(stream.streamId, closeReason)
+	c.readFromNetConn(stream.streamId, stream.conn)
 }
 
 func (c *wispConn) handleDataPacket(stream *wispStream) {
@@ -263,14 +256,23 @@ func (c *wispConn) endWispStream(streamId uint32, reason uint8) {
 	c.sendClosePacket(streamId, reason)
 }
 
-func (s *wispStream) readFromNetConn(wispConnection *wispConn) error {
+func (c *wispConn) readFromNetConn(streamId uint32, conn net.Conn) {
+	var closeReason uint8
+
 	buffer := make([]byte, 4096)
 	for {
-		n, err := s.conn.Read(buffer)
+		n, err := conn.Read(buffer)
 		if err != nil {
-			return err
+			if err == io.EOF {
+				closeReason = closeReasonVoluntary
+			} else {
+				closeReason = closeReasonNetworkError
+			}
+			break
 		}
 
-		wispConnection.sendDataPacket(s.streamId, buffer[:n])
+		c.sendDataPacket(streamId, buffer[:n])
 	}
+
+	c.endWispStream(streamId, closeReason)
 }
