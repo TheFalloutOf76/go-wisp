@@ -40,7 +40,7 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	case streamTypeUDP:
 		if s.wispConn.config.DisableUDP {
 			s.connEstablished <- false
-			s.sendClose(closeReasonBlocked)
+			s.close(closeReasonBlocked)
 			return
 		}
 		s.conn, err = net.Dial("udp", net.JoinHostPort(hostname, port))
@@ -88,6 +88,7 @@ func (s *wispStream) handleData() {
 			_, err := s.conn.Write(packet)
 			if err != nil {
 				s.close(closeReasonNetworkError)
+				return
 			}
 
 			if s.streamType == streamTypeTCP {
@@ -119,6 +120,12 @@ func (s *wispStream) sendClose(reason uint8) {
 	s.wispConn.sendClosePacket(s.streamId, reason)
 }
 
+func (s *wispStream) closeConnection() {
+	if s.ready.Load() {
+		s.closeConnection()
+	}
+}
+
 func (s *wispStream) readFromConnection() {
 	var closeReason uint8
 
@@ -141,9 +148,7 @@ func (s *wispStream) readFromConnection() {
 }
 
 func (s *wispStream) close(reason uint8) {
-	if s.ready.Load() {
-		s.conn.Close()
-	}
+	s.closeConnection()
 
 	s.wispConn.streamsMutex.Lock()
 	delete(s.wispConn.streams, s.streamId)

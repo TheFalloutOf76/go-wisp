@@ -153,7 +153,8 @@ func (c *wispConnection) sendClosePacket(streamId uint32, reason uint8) {
 
 func (c *wispConnection) deleteAllWispStreams() {
 	c.streamsMutex.Lock()
-	for streamId := range c.streams {
+	for streamId, stream := range c.streams {
+		stream.closeConnection()
 		delete(c.streams, streamId)
 	}
 	c.streamsMutex.Unlock()
