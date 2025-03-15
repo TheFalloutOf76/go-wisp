@@ -129,7 +129,7 @@ func (s *wispStream) closeConnection() {
 func (s *wispStream) readFromConnection() {
 	var closeReason uint8
 
-	buffer := make([]byte, 4096)
+	buffer := make([]byte, s.wispConn.config.TcpBufferSize)
 	for {
 		n, err := s.conn.Read(buffer)
 		if err != nil {

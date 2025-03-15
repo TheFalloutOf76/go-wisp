@@ -51,7 +51,8 @@ func main() {
 		}{
 			Hostnames: blocklist,
 		},
-		DisableUDP: true,
+		DisableUDP:    true,
+		TcpBufferSize: 8192,
 	})
 	http.HandleFunc("/", wispHandler)
 	fmt.Println("starting wisp server on port 8080. . .")

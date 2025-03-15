@@ -14,7 +14,8 @@ type Config struct {
 	Blacklist             struct {
 		Hostnames map[string]struct{}
 	}
-	DisableUDP bool
+	DisableUDP    bool
+	TcpBufferSize uint
 }
 
 func CreateWispHandler(config Config) http.HandlerFunc {
