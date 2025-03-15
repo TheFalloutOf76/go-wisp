@@ -53,6 +53,7 @@ func main() {
 		},
 		DisableUDP:    true,
 		TcpBufferSize: 8192,
+		TcpNoDelay:    false,
 	})
 	http.HandleFunc("/", wispHandler)
 	fmt.Println("starting wisp server on port 8080. . .")

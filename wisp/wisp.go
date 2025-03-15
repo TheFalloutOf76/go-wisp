@@ -16,6 +16,7 @@ type Config struct {
 	}
 	DisableUDP    bool
 	TcpBufferSize uint
+	TcpNoDelay    bool
 }
 
 func CreateWispHandler(config Config) http.HandlerFunc {

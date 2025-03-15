@@ -37,6 +37,8 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	switch streamType {
 	case streamTypeTCP:
 		s.conn, err = net.Dial("tcp", net.JoinHostPort(hostname, port))
+		tcpConn := s.conn.(*net.TCPConn)
+		tcpConn.SetNoDelay(s.wispConn.config.TcpNoDelay)
 	case streamTypeUDP:
 		if s.wispConn.config.DisableUDP {
 			s.connEstablished <- false
