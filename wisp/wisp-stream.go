@@ -122,7 +122,7 @@ func (s *wispStream) sendClose(reason uint8) {
 
 func (s *wispStream) closeConnection() {
 	if s.ready.Load() {
-		s.closeConnection()
+		s.conn.Close()
 	}
 }
 
