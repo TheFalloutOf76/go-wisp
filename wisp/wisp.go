@@ -13,7 +13,10 @@ import (
 )
 
 type WispConfig struct {
-	DefaultBufferRemaining uint32
+	BufferRemainingLength uint32
+	Blacklist             struct {
+		Hostnames map[string]struct{}
+	}
 }
 
 func CreateWispHandler(config WispConfig) http.HandlerFunc {
@@ -32,7 +35,7 @@ func CreateWispHandler(config WispConfig) http.HandlerFunc {
 		}
 		defer wispConnection.endAllWispStreams()
 
-		wispConnection.sendContinuePacket(0, config.DefaultBufferRemaining)
+		wispConnection.sendContinuePacket(0, config.BufferRemainingLength)
 
 		for {
 			_, message, err := conn.ReadMessage()
@@ -96,9 +99,7 @@ func (c *wispConn) handlePacket(message []byte) {
 			stream.dataPackets = append(stream.dataPackets, payload)
 			stream.dataPacketsMutex.Unlock()
 
-			if !stream.isSendingData.Load() {
-				go c.handleDataPacket(stream)
-			}
+			go c.handleDataPacket(stream)
 		}
 	case packetTypeClose:
 		go c.handleClosePacket(streamId, payload)
@@ -115,8 +116,21 @@ func (c *wispConn) handleConnectPacket(stream *wispStream, payload []byte) {
 	port := strconv.FormatUint(uint64(binary.LittleEndian.Uint16(payload[1:3])), 10)
 	hostname := string(payload[3:])
 
+	if _, blacklisted := c.config.Blacklist.Hostnames[hostname]; blacklisted {
+		stream.connEstablished <- false
+
+		c.streamsMutex.Lock()
+		c.endWispStream(stream.streamId)
+		c.streamsMutex.Unlock()
+
+		if err := c.sendClosePacket(stream.streamId, closeReasonBlocked); err != nil {
+			c.wsConn.Close()
+		}
+		return
+	}
+
 	stream.streamType = streamType
-	stream.bufferRemaining = c.config.DefaultBufferRemaining
+	stream.bufferRemaining = c.config.BufferRemainingLength
 
 	var err error
 	switch streamType {
@@ -161,6 +175,9 @@ func (c *wispConn) handleConnectPacket(stream *wispStream, payload []byte) {
 }
 
 func (c *wispConn) handleDataPacket(stream *wispStream) {
+	if stream.isSendingData.Load() {
+		return
+	}
 	stream.isSendingData.Store(true)
 	defer stream.isSendingData.Store(false)
 
@@ -193,8 +210,8 @@ func (c *wispConn) handleDataPacket(stream *wispStream) {
 
 			if stream.streamType == streamTypeTCP {
 				if stream.bufferRemaining == 1 {
-					stream.bufferRemaining = c.config.DefaultBufferRemaining
-					c.sendContinuePacket(stream.streamId, c.config.DefaultBufferRemaining)
+					stream.bufferRemaining = c.config.BufferRemainingLength
+					c.sendContinuePacket(stream.streamId, c.config.BufferRemainingLength)
 				} else {
 					stream.bufferRemaining--
 				}
@@ -203,9 +220,9 @@ func (c *wispConn) handleDataPacket(stream *wispStream) {
 	}
 }
 
-func (c *wispConn) handleClosePacket(streamId uint32, payload []byte) error {
+func (c *wispConn) handleClosePacket(streamId uint32, payload []byte) {
 	if len(payload) < 1 {
-		return nil
+		return
 	}
 	closeReason := payload[0]
 	_ = closeReason
@@ -213,7 +230,6 @@ func (c *wispConn) handleClosePacket(streamId uint32, payload []byte) error {
 	c.streamsMutex.Lock()
 	c.endWispStream(streamId)
 	c.streamsMutex.Unlock()
-	return nil
 }
 
 func (c *wispConn) sendPacket(packet []byte) error {

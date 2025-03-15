@@ -9,7 +9,7 @@ import (
 
 func main() {
 	wispHandler := wisp.CreateWispHandler(wisp.WispConfig{
-		DefaultBufferRemaining: 255,
+		BufferRemainingLength: 255,
 	})
 	http.HandleFunc("/", wispHandler)
 	fmt.Println("starting wisp server on port 8080...")
