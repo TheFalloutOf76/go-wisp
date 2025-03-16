@@ -3,10 +3,10 @@ package wisp
 import "encoding/binary"
 
 func createWispPacket(packetType uint8, streamId uint32, payload []byte) []byte {
-	packet := make([]byte, 5)
+	packet := make([]byte, 5+len(payload))
 	packet[0] = packetType
 	binary.LittleEndian.PutUint32(packet[1:5], streamId)
-	packet = append(packet, payload...)
+	copy(packet[5:], payload)
 	return packet
 }
 

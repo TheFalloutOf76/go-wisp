@@ -132,8 +132,10 @@ func (s *wispStream) closeConnection() {
 func (s *wispStream) readFromConnection() {
 	var closeReason uint8
 
-	buffer := make([]byte, s.wispConn.config.TcpBufferSize)
+	prevSent := make(chan struct{}, 1)
+	prevSent <- struct{}{}
 	for {
+		buffer := make([]byte, s.wispConn.config.TcpBufferSize)
 		n, err := s.conn.Read(buffer)
 		if err != nil {
 			if err == io.EOF {
@@ -144,7 +146,11 @@ func (s *wispStream) readFromConnection() {
 			break
 		}
 
-		s.sendData(buffer[:n])
+		<-prevSent
+		go func() {
+			s.sendData(buffer[:n])
+			prevSent <- struct{}{}
+		}()
 	}
 
 	s.close(closeReason)

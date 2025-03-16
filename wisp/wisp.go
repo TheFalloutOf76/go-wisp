@@ -34,7 +34,7 @@ func CreateWispHandler(config Config) http.HandlerFunc {
 		}
 		defer wispConnection.deleteAllWispStreams()
 
-		wispConnection.sendContinuePacket(0, config.BufferRemainingLength)
+		go wispConnection.sendContinuePacket(0, config.BufferRemainingLength)
 
 		for {
 			_, message, err := wsConn.ReadMessage()
