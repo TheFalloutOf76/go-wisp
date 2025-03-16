@@ -52,12 +52,14 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 
 	if err != nil {
 		s.connEstablished <- false
-		s.close(closeReasonBlocked)
+		s.close(closeReasonNetworkError)
 		return
 	}
 
-	tcpConn := s.conn.(*net.TCPConn)
-	tcpConn.SetNoDelay(s.wispConn.config.TcpNoDelay)
+	if s.streamType == streamTypeTCP {
+		tcpConn := s.conn.(*net.TCPConn)
+		tcpConn.SetNoDelay(s.wispConn.config.TcpNoDelay)
+	}
 
 	s.connEstablished <- true
 	s.ready.Store(true)
