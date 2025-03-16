@@ -15,7 +15,7 @@ type Config struct {
 		Hostnames map[string]struct{}
 	}
 	DisableUDP    bool
-	TcpBufferSize uint
+	TcpBufferSize int
 	TcpNoDelay    bool
 }
 

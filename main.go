@@ -14,7 +14,7 @@ import (
 type Config struct {
 	BufferRemainingLength uint32 `json:"bufferRemainingLength"`
 	DisableUDP            bool   `json:"disableUDP"`
-	TcpBufferSize         uint   `json:"tcpBufferSize"`
+	TcpBufferSize         int    `json:"tcpBufferSize"`
 	TcpNoDelay            bool   `json:"tcpNoDelay"`
 	Blacklist             struct {
 		Hostnames struct {
