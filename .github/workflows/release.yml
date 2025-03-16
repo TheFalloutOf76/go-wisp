@@ -29,3 +29,4 @@ jobs:
         ldflags: -s -w
         md5sum: false
         release_tag: builds
+        asset_name: go-wisp-${{ matrix.goos }}
