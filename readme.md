@@ -2,6 +2,8 @@
 
 go-wisp is a lightweight proxy server written in Go that multiplexes multiple TCP/UDP sockets over a single websocket connection. It focuses on low overhead and robust error handling, making it an efficient proxy solution for various networking needs.
 
+![image](https://files.catbox.moe/2d5a4f.png)
+
 ## Features
 
 - **Multiplexing:** Support for handling multiple TCP/UDP streams over a single connection.
