@@ -5,12 +5,11 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/gorilla/websocket"
+	"github.com/lxzan/gws"
 )
 
 type wispConnection struct {
-	wsConn  *websocket.Conn
-	wsMutex sync.Mutex
+	wsConn *gws.Conn
 
 	streams sync.Map
 
@@ -62,8 +61,11 @@ func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
 	}
 	stream := streamAny.(*wispStream)
 
+	data := make([]byte, len(payload))
+	copy(data, payload)
+
 	stream.dataQueueMutex.Lock()
-	stream.dataQueue = append(stream.dataQueue, payload)
+	stream.dataQueue = append(stream.dataQueue, data)
 	stream.dataQueueMutex.Unlock()
 
 	go stream.handleData()
@@ -85,11 +87,9 @@ func (c *wispConnection) handleClosePacket(streamId uint32, payload []byte) {
 }
 
 func (c *wispConnection) sendPacket(packet []byte) {
-	c.wsMutex.Lock()
-	if err := c.wsConn.WriteMessage(websocket.BinaryMessage, packet); err != nil {
-		c.wsConn.Close()
+	if err := c.wsConn.WriteMessage(gws.OpcodeBinary, packet); err != nil {
+		c.wsConn.NetConn().Close()
 	}
-	c.wsMutex.Unlock()
 }
 
 func (c *wispConnection) sendDataPacket(streamId uint32, data []byte) {

@@ -3,7 +3,7 @@ package wisp
 import (
 	"net/http"
 
-	"github.com/gorilla/websocket"
+	"github.com/lxzan/gws"
 )
 
 type Config struct {
@@ -18,28 +18,38 @@ type Config struct {
 
 func CreateWispHandler(config Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-		wsConn, err := upgrader.Upgrade(w, r, nil)
+		handler := &handler{}
+
+		upgrader := gws.NewUpgrader(handler, &gws.ServerOption{})
+
+		wsConn, err := upgrader.Upgrade(w, r)
 		if err != nil {
 			return
 		}
-		defer wsConn.Close()
 
-		wispConnection := &wispConnection{
+		handler.wispConn = &wispConnection{
 			wsConn: wsConn,
 			config: config,
 		}
-		defer wispConnection.deleteAllWispStreams()
 
-		go wispConnection.sendContinuePacket(0, config.BufferRemainingLength)
-
-		for {
-			_, message, err := wsConn.ReadMessage()
-			if err != nil {
-				return
-			}
-
-			wispConnection.handlePacket(message)
-		}
+		go wsConn.ReadLoop()
 	}
+}
+
+type handler struct {
+	gws.BuiltinEventHandler
+	wispConn *wispConnection
+}
+
+func (h *handler) OnOpen(socket *gws.Conn) {
+	h.wispConn.sendContinuePacket(0, h.wispConn.config.BufferRemainingLength)
+}
+
+func (h *handler) OnClose(socket *gws.Conn, err error) {
+	h.wispConn.deleteAllWispStreams()
+}
+
+func (h *handler) OnMessage(socket *gws.Conn, message *gws.Message) {
+	h.wispConn.handlePacket(message.Bytes())
+	message.Close()
 }
