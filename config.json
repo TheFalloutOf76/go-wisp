@@ -9,5 +9,6 @@
             "include": [],
             "exclude": []
         }
-    }
+    },
+    "port": "8080"
 }

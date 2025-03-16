@@ -23,6 +23,7 @@ type Config struct {
 			Exclude      []string `json:"exclude"`
 		} `json:"hostnames"`
 	} `json:"blacklist"`
+	Port string `json:"port"`
 }
 
 func getBlocklistFromUrl(url string) (map[string]struct{}, error) {
@@ -110,8 +111,8 @@ func main() {
 	wispHandler := wisp.CreateWispHandler(wispConfig)
 
 	http.HandleFunc("/", wispHandler)
-	fmt.Println("starting wisp server on port 8080. . .")
-	err = http.ListenAndServe(":8080", nil)
+	fmt.Printf("starting wisp server on port %s. . .", cfg.Port)
+	err = http.ListenAndServe(":"+cfg.Port, nil)
 	if err != nil {
 		fmt.Printf("failed to start server: %v", err)
 	}
