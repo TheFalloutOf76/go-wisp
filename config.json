@@ -1,5 +1,5 @@
 {
-    "bufferRemainingLength": 255,
+    "bufferRemainingLength": 256,
     "disableUDP": true,
     "tcpBufferSize": 8192,
     "tcpNoDelay": false,
