@@ -2,16 +2,30 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"go-wisp/wisp"
 )
 
-const blocklistURL = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt"
+type Config struct {
+	BufferRemainingLength uint32 `json:"bufferRemainingLength"`
+	DisableUDP            bool   `json:"disableUDP"`
+	TcpBufferSize         uint   `json:"tcpBufferSize"`
+	TcpNoDelay            bool   `json:"tcpNoDelay"`
+	Blacklist             struct {
+		Hostnames struct {
+			FetchFromUrl string   `json:"fetchFromUrl"`
+			Include      []string `json:"include"`
+			Exclude      []string `json:"exclude"`
+		} `json:"hostnames"`
+	} `json:"blacklist"`
+}
 
-func getBlocklist(url string) (map[string]struct{}, error) {
+func getBlocklistFromUrl(url string) (map[string]struct{}, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -37,24 +51,64 @@ func getBlocklist(url string) (map[string]struct{}, error) {
 	return blocklist, nil
 }
 
-func main() {
-	blocklist, err := getBlocklist(blocklistURL)
+func loadConfig(filename string) (Config, error) {
+	file, err := os.Open(filename)
 	if err != nil {
-		blocklist = make(map[string]struct{})
-		fmt.Printf("failed to fetch blocklist: %v\n", err)
+		return Config{}, err
+	}
+	defer file.Close()
+
+	var cfg Config
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&cfg); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+func createWispConfig(cfg Config) wisp.Config {
+	blocklist := make(map[string]struct{})
+	fetchURL := cfg.Blacklist.Hostnames.FetchFromUrl
+	if fetchURL != "" {
+		bl, err := getBlocklistFromUrl(fetchURL)
+		if err != nil {
+			fmt.Printf("failed to fetch blocklist from URL: %v\n", err)
+		} else {
+			blocklist = bl
+		}
 	}
 
-	wispHandler := wisp.CreateWispHandler(wisp.Config{
-		BufferRemainingLength: 255,
+	for _, host := range cfg.Blacklist.Hostnames.Include {
+		blocklist[host] = struct{}{}
+	}
+
+	for _, host := range cfg.Blacklist.Hostnames.Exclude {
+		delete(blocklist, host)
+	}
+
+	return wisp.Config{
+		BufferRemainingLength: cfg.BufferRemainingLength,
 		Blacklist: struct {
 			Hostnames map[string]struct{}
 		}{
 			Hostnames: blocklist,
 		},
-		DisableUDP:    true,
-		TcpBufferSize: 8192,
-		TcpNoDelay:    false,
-	})
+		DisableUDP:    cfg.DisableUDP,
+		TcpBufferSize: cfg.TcpBufferSize,
+		TcpNoDelay:    cfg.TcpNoDelay,
+	}
+}
+
+func main() {
+	cfg, err := loadConfig("config.json")
+	if err != nil {
+		fmt.Printf("failed to load config: %v", err)
+		return
+	}
+	wispConfig := createWispConfig(cfg)
+
+	wispHandler := wisp.CreateWispHandler(wispConfig)
+
 	http.HandleFunc("/", wispHandler)
 	fmt.Println("starting wisp server on port 8080. . .")
 	err = http.ListenAndServe(":8080", nil)

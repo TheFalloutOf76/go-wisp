@@ -1,0 +1,13 @@
+{
+    "bufferRemainingLength": 255,
+    "disableUDP": true,
+    "tcpBufferSize": 8192,
+    "tcpNoDelay": false,
+    "blacklist": {
+        "hostnames": {
+            "fetchFromUrl": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt",
+            "include": [],
+            "exclude": []
+        }
+    }
+}
