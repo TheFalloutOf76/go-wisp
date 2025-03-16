@@ -21,7 +21,9 @@ func CreateWispHandler(config Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler := &handler{}
 
-		upgrader := gws.NewUpgrader(handler, &gws.ServerOption{})
+		upgrader := gws.NewUpgrader(handler, &gws.ServerOption{
+			PermessageDeflate: gws.PermessageDeflate{Enabled: true},
+		})
 
 		wsConn, err := upgrader.Upgrade(w, r)
 		if err != nil {
