@@ -80,7 +80,7 @@ func (s *wispStream) handleData() {
 	for {
 		s.dataQueueMutex.Lock()
 		dataPackets := s.dataQueue
-		s.dataQueue = s.dataQueue[:0]
+		s.dataQueue = make([][]byte, 0)
 		s.dataQueueMutex.Unlock()
 		if len(dataPackets) == 0 {
 			break
