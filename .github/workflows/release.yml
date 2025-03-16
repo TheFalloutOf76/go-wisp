@@ -27,3 +27,4 @@ jobs:
         extra_files: config.json
         compress_assets: zip
         ldflags: -s -w
+        md5sum: false
