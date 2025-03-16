@@ -97,11 +97,10 @@ func (s *wispStream) handleData() {
 			}
 
 			if s.streamType == streamTypeTCP {
-				if s.bufferRemaining == 1 {
+				s.bufferRemaining--
+				if s.bufferRemaining == 0 {
 					s.bufferRemaining = s.wispConn.config.BufferRemainingLength
 					s.sendContinue(s.bufferRemaining)
-				} else {
-					s.bufferRemaining--
 				}
 			}
 		}
