@@ -1,6 +1,7 @@
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - 'main'
 
 permissions:
     contents: write
@@ -24,3 +25,5 @@ jobs:
         goversion: "1.24.1"
         binary_name: "go-wisp"
         extra_files: config.json
+        compress_assets: false
+        ldflags: -s -w
