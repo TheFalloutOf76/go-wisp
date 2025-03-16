@@ -28,3 +28,4 @@ jobs:
         compress_assets: zip
         ldflags: -s -w
         md5sum: false
+        release_tag: builds
