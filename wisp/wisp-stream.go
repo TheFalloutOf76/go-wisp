@@ -64,7 +64,7 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	s.connEstablished <- true
 	s.ready.Store(true)
 
-	s.readFromConnection()
+	go s.readFromConnection()
 }
 
 func (s *wispStream) handleData() {
