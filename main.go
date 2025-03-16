@@ -23,7 +23,8 @@ type Config struct {
 			Exclude      []string `json:"exclude"`
 		} `json:"hostnames"`
 	} `json:"blacklist"`
-	Port string `json:"port"`
+	Port                string `json:"port"`
+	WebsocketTcpNoDelay bool   `json:"websocketTcpNoDelay"`
 }
 
 func getBlocklistFromUrl(url string) (map[string]struct{}, error) {
@@ -94,9 +95,10 @@ func createWispConfig(cfg Config) wisp.Config {
 		}{
 			Hostnames: blocklist,
 		},
-		DisableUDP:    cfg.DisableUDP,
-		TcpBufferSize: cfg.TcpBufferSize,
-		TcpNoDelay:    cfg.TcpNoDelay,
+		DisableUDP:          cfg.DisableUDP,
+		TcpBufferSize:       cfg.TcpBufferSize,
+		TcpNoDelay:          cfg.TcpNoDelay,
+		WebsocketTcpNoDelay: cfg.WebsocketTcpNoDelay,
 	}
 }
 

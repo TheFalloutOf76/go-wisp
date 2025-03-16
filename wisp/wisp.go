@@ -11,9 +11,10 @@ type Config struct {
 	Blacklist             struct {
 		Hostnames map[string]struct{}
 	}
-	DisableUDP    bool
-	TcpBufferSize int
-	TcpNoDelay    bool
+	DisableUDP          bool
+	TcpBufferSize       int
+	TcpNoDelay          bool
+	WebsocketTcpNoDelay bool
 }
 
 func CreateWispHandler(config Config) http.HandlerFunc {
@@ -26,6 +27,8 @@ func CreateWispHandler(config Config) http.HandlerFunc {
 		if err != nil {
 			return
 		}
+
+		wsConn.SetNoDelay(config.WebsocketTcpNoDelay)
 
 		handler.wispConn = &wispConnection{
 			wsConn: wsConn,
