@@ -29,9 +29,8 @@ func CreateWispHandler(config Config) http.HandlerFunc {
 		defer wsConn.Close()
 
 		wispConnection := &wispConnection{
-			wsConn:  wsConn,
-			streams: make(map[uint32]*wispStream),
-			config:  config,
+			wsConn: wsConn,
+			config: config,
 		}
 		defer wispConnection.deleteAllWispStreams()
 
@@ -52,8 +51,7 @@ type wispConnection struct {
 	wsConn  *websocket.Conn
 	wsMutex sync.Mutex
 
-	streams      map[uint32]*wispStream
-	streamsMutex sync.RWMutex
+	streams sync.Map
 
 	config Config
 }
@@ -90,21 +88,19 @@ func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 		connEstablished: make(chan bool, 1),
 	}
 
-	c.streamsMutex.Lock()
-	c.streams[streamId] = stream
-	c.streamsMutex.Unlock()
+	c.streams.Store(streamId, stream)
 
 	go stream.handleConnect(streamType, port, hostname)
 }
 
 func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
-	c.streamsMutex.RLock()
-	stream, exists := c.streams[streamId]
-	c.streamsMutex.RUnlock()
+	streamAny, exists := c.streams.Load(streamId)
 	if !exists {
 		c.sendClosePacket(streamId, closeReasonInvalidInfo)
 		return
 	}
+	stream := streamAny.(*wispStream)
+
 	stream.dataQueueMutex.Lock()
 	stream.dataQueue = append(stream.dataQueue, payload)
 	stream.dataQueueMutex.Unlock()
@@ -113,17 +109,16 @@ func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
 }
 
 func (c *wispConnection) handleClosePacket(streamId uint32, payload []byte) {
-	c.streamsMutex.RLock()
-	stream, exists := c.streams[streamId]
-	c.streamsMutex.RUnlock()
-	if !exists {
-		return
-	}
-
 	if len(payload) < 1 {
 		return
 	}
 	closeReason := payload[0]
+
+	streamAny, exists := c.streams.Load(streamId)
+	if !exists {
+		return
+	}
+	stream := streamAny.(*wispStream)
 
 	go stream.handleClose(closeReason)
 }
@@ -154,10 +149,9 @@ func (c *wispConnection) sendClosePacket(streamId uint32, reason uint8) {
 }
 
 func (c *wispConnection) deleteAllWispStreams() {
-	c.streamsMutex.Lock()
-	for streamId, stream := range c.streams {
-		stream.closeConnection()
-		delete(c.streams, streamId)
-	}
-	c.streamsMutex.Unlock()
+	c.streams.Range(func(key, value any) bool {
+		value.(*wispStream).closeConnection()
+		c.streams.Delete(key)
+		return true
+	})
 }

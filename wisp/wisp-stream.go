@@ -152,9 +152,7 @@ func (s *wispStream) readFromConnection() {
 func (s *wispStream) close(reason uint8) {
 	s.closeConnection()
 
-	s.wispConn.streamsMutex.Lock()
-	delete(s.wispConn.streams, s.streamId)
-	s.wispConn.streamsMutex.Unlock()
+	s.wispConn.streams.Delete(s.streamId)
 
 	s.sendClose(reason)
 }
