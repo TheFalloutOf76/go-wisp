@@ -13,6 +13,7 @@ func createWispPacket(packetType uint8, streamId uint32, payload []byte) []byte 
 func parseWispPacket(packet []byte) (uint8, uint32, []byte) {
 	packetType := packet[0]
 	streamId := binary.LittleEndian.Uint32(packet[1:5])
-	payload := packet[5:]
+	payload := make([]byte, len(packet)-5)
+	copy(payload, packet[5:])
 	return packetType, streamId, payload
 }

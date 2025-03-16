@@ -61,11 +61,8 @@ func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
 	}
 	stream := streamAny.(*wispStream)
 
-	data := make([]byte, len(payload))
-	copy(data, payload)
-
 	stream.dataQueueMutex.Lock()
-	stream.dataQueue = append(stream.dataQueue, data)
+	stream.dataQueue = append(stream.dataQueue, payload)
 	stream.dataQueueMutex.Unlock()
 
 	go stream.handleData()
