@@ -26,7 +26,6 @@ type wispStream struct {
 
 func (s *wispStream) handleConnect(streamType uint8, port string, hostname string) {
 	if _, blacklisted := s.wispConn.config.Blacklist.Hostnames[hostname]; blacklisted {
-		s.connEstablished <- false
 		s.close(closeReasonBlocked)
 		return
 	}
@@ -40,19 +39,16 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 		s.conn, err = net.Dial("tcp", net.JoinHostPort(hostname, port))
 	case streamTypeUDP:
 		if s.wispConn.config.DisableUDP {
-			s.connEstablished <- false
 			s.close(closeReasonBlocked)
 			return
 		}
 		s.conn, err = net.Dial("udp", net.JoinHostPort(hostname, port))
 	default:
-		s.connEstablished <- false
 		s.close(closeReasonInvalidInfo)
 		return
 	}
 
 	if err != nil {
-		s.connEstablished <- false
 		s.close(closeReasonNetworkError)
 		return
 	}
@@ -157,6 +153,11 @@ func (s *wispStream) close(reason uint8) {
 		s.closeConnection()
 
 		close(s.dataQueue)
+
+		select {
+		case s.connEstablished <- false:
+		default:
+		}
 		close(s.connEstablished)
 
 		s.sendClose(reason)
