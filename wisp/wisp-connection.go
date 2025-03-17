@@ -46,6 +46,7 @@ func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 		wispConn:        c,
 		streamId:        streamId,
 		connEstablished: make(chan bool, 1),
+		dataQueue:       make(chan []byte, c.config.BufferRemainingLength),
 	}
 
 	c.streams.Store(streamId, stream)
@@ -61,9 +62,10 @@ func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
 	}
 	stream := streamAny.(*wispStream)
 
-	stream.dataQueueMutex.Lock()
-	stream.dataQueue = append(stream.dataQueue, payload)
-	stream.dataQueueMutex.Unlock()
+	select {
+	case stream.dataQueue <- payload:
+	default:
+	}
 
 	go stream.handleData()
 }
@@ -108,8 +110,11 @@ func (c *wispConnection) sendClosePacket(streamId uint32, reason uint8) {
 
 func (c *wispConnection) deleteAllWispStreams() {
 	c.streams.Range(func(key, value any) bool {
-		value.(*wispStream).closeConnection()
+		stream, ok := value.(*wispStream)
+		if !ok {
+			return true
+		}
+		stream.close(closeReasonUnspecified)
 		return true
 	})
-	c.streams.Clear()
 }

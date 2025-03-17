@@ -15,12 +15,13 @@ type wispStream struct {
 	conn            net.Conn
 	bufferRemaining uint32
 
-	dataQueue      [][]byte
-	dataQueueMutex sync.Mutex
+	dataQueue chan []byte
 
 	ready           atomic.Bool
 	connEstablished chan bool
 	isSendingData   atomic.Bool
+
+	closeOnce sync.Once
 }
 
 func (s *wispStream) handleConnect(streamType uint8, port string, hostname string) {
@@ -80,28 +81,18 @@ func (s *wispStream) handleData() {
 		}
 	}
 
-	for {
-		s.dataQueueMutex.Lock()
-		dataPackets := s.dataQueue
-		s.dataQueue = make([][]byte, 0)
-		s.dataQueueMutex.Unlock()
-		if len(dataPackets) == 0 {
-			break
+	for data := range s.dataQueue {
+		_, err := s.conn.Write(data)
+		if err != nil {
+			s.close(closeReasonNetworkError)
+			return
 		}
 
-		for _, packet := range dataPackets {
-			_, err := s.conn.Write(packet)
-			if err != nil {
-				s.close(closeReasonNetworkError)
-				return
-			}
-
-			if s.streamType == streamTypeTCP {
-				s.bufferRemaining--
-				if s.bufferRemaining == 0 {
-					s.bufferRemaining = s.wispConn.config.BufferRemainingLength
-					s.sendContinue(s.bufferRemaining)
-				}
+		if s.streamType == streamTypeTCP {
+			s.bufferRemaining--
+			if s.bufferRemaining == 0 {
+				s.bufferRemaining = s.wispConn.config.BufferRemainingLength
+				s.sendContinue(s.bufferRemaining)
 			}
 		}
 	}
@@ -168,9 +159,14 @@ func (s *wispStream) readFromConnection() {
 }
 
 func (s *wispStream) close(reason uint8) {
-	s.closeConnection()
+	s.closeOnce.Do(func() {
+		s.wispConn.streams.Delete(s.streamId)
 
-	s.wispConn.streams.Delete(s.streamId)
+		s.closeConnection()
 
-	s.sendClose(reason)
+		close(s.dataQueue)
+		close(s.connEstablished)
+
+		s.sendClose(reason)
+	})
 }
