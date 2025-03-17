@@ -22,6 +22,8 @@ type wispStream struct {
 
 	sendDataOnce sync.Once
 	closeOnce    sync.Once
+
+	isOpen atomic.Bool
 }
 
 func (s *wispStream) handleConnect(streamType uint8, port string, hostname string) {
@@ -152,6 +154,7 @@ func (s *wispStream) close(reason uint8) {
 
 		s.closeConnection()
 
+		s.isOpen.Store(false)
 		close(s.dataQueue)
 
 		select {

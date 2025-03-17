@@ -48,6 +48,7 @@ func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 		connEstablished: make(chan bool, 1),
 		dataQueue:       make(chan []byte, c.config.BufferRemainingLength),
 	}
+	stream.isOpen.Store(true)
 
 	c.streams.Store(streamId, stream)
 
@@ -61,6 +62,10 @@ func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
 		return
 	}
 	stream := streamAny.(*wispStream)
+
+	if !stream.isOpen.Load() {
+		return
+	}
 
 	select {
 	case stream.dataQueue <- payload:
