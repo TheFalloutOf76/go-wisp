@@ -67,7 +67,7 @@ func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
 	default:
 	}
 
-	go stream.handleData()
+	go stream.sendDataOnce.Do(stream.handleData)
 }
 
 func (c *wispConnection) handleClosePacket(streamId uint32, payload []byte) {
