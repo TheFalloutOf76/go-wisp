@@ -17,7 +17,7 @@ type Config struct {
 	WebsocketTcpNoDelay bool
 }
 
-func CreateWispHandler(config Config) http.HandlerFunc {
+func CreateWispHandler(config *Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler := &handler{}
 

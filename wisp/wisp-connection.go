@@ -13,7 +13,7 @@ type wispConnection struct {
 
 	streams sync.Map
 
-	config Config
+	config *Config
 }
 
 func (c *wispConnection) handlePacket(packet []byte) {

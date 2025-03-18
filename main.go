@@ -68,7 +68,7 @@ func loadConfig(filename string) (Config, error) {
 	return cfg, nil
 }
 
-func createWispConfig(cfg Config) wisp.Config {
+func createWispConfig(cfg Config) *wisp.Config {
 	blocklist := make(map[string]struct{})
 	fetchURL := cfg.Blacklist.Hostnames.FetchFromUrl
 	if fetchURL != "" {
@@ -88,7 +88,7 @@ func createWispConfig(cfg Config) wisp.Config {
 		delete(blocklist, host)
 	}
 
-	return wisp.Config{
+	return &wisp.Config{
 		BufferRemainingLength: cfg.BufferRemainingLength,
 		Blacklist: struct {
 			Hostnames map[string]struct{}
