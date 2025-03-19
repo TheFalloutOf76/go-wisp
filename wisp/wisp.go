@@ -55,6 +55,12 @@ func (h *handler) OnClose(socket *gws.Conn, err error) {
 }
 
 func (h *handler) OnMessage(socket *gws.Conn, message *gws.Message) {
-	h.wispConn.handlePacket(message.Bytes())
+	packet := message.Bytes()
+	if len(packet) < 5 {
+		return
+	}
+	packetType, streamId, payload := parseWispPacket(packet)
 	message.Close()
+
+	h.wispConn.handlePacket(packetType, streamId, payload)
 }

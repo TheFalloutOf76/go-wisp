@@ -16,12 +16,7 @@ type wispConnection struct {
 	config *Config
 }
 
-func (c *wispConnection) handlePacket(packet []byte) {
-	if len(packet) < 5 {
-		return
-	}
-	packetType, streamId, payload := parseWispPacket(packet)
-
+func (c *wispConnection) handlePacket(packetType uint8, streamId uint32, payload []byte) {
 	switch packetType {
 	case packetTypeConnect:
 		c.handleConnectPacket(streamId, payload)
@@ -90,27 +85,26 @@ func (c *wispConnection) handleClosePacket(streamId uint32, payload []byte) {
 	go stream.handleClose(closeReason)
 }
 
-func (c *wispConnection) sendPacket(packet []byte) {
+func (c *wispConnection) sendPacket(packetType uint8, streamId uint32, payload []byte) {
+	packet := createWispPacket(packetType, streamId, payload)
 	if err := c.wsConn.WriteMessage(gws.OpcodeBinary, packet); err != nil {
 		c.wsConn.NetConn().Close()
 	}
 }
 
 func (c *wispConnection) sendDataPacket(streamId uint32, data []byte) {
-	packet := createWispPacket(packetTypeData, streamId, data)
-	c.sendPacket(packet)
+	c.sendPacket(packetTypeData, streamId, data)
 }
 
 func (c *wispConnection) sendContinuePacket(streamId uint32, bufferRemaining uint32) {
 	payload := make([]byte, 4)
 	binary.LittleEndian.PutUint32(payload, bufferRemaining)
-	packet := createWispPacket(packetTypeContinue, streamId, payload)
-	c.sendPacket(packet)
+	c.sendPacket(packetTypeContinue, streamId, payload)
 }
 
 func (c *wispConnection) sendClosePacket(streamId uint32, reason uint8) {
-	packet := createWispPacket(packetTypeClose, streamId, []byte{reason})
-	c.sendPacket(packet)
+	payload := []byte{reason}
+	c.sendPacket(packetTypeClose, streamId, payload)
 }
 
 func (c *wispConnection) deleteAllWispStreams() {
