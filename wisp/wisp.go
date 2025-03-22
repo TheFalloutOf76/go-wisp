@@ -47,7 +47,7 @@ type handler struct {
 }
 
 func (h *handler) OnOpen(socket *gws.Conn) {
-	h.wispConn.sendContinuePacket(0, h.wispConn.config.BufferRemainingLength)
+	h.wispConn.init()
 }
 
 func (h *handler) OnClose(socket *gws.Conn, err error) {
@@ -55,12 +55,13 @@ func (h *handler) OnClose(socket *gws.Conn, err error) {
 }
 
 func (h *handler) OnMessage(socket *gws.Conn, message *gws.Message) {
+	defer message.Close()
+
 	packet := message.Bytes()
 	if len(packet) < 5 {
 		return
 	}
 	packetType, streamId, payload := parseWispPacket(packet)
-	message.Close()
 
 	h.wispConn.handlePacket(packetType, streamId, payload)
 }

@@ -1,6 +1,9 @@
 package wisp
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"slices"
+)
 
 func createWispPacket(packetType uint8, streamId uint32, payload []byte) []byte {
 	packet := make([]byte, 5+len(payload))
@@ -13,7 +16,6 @@ func createWispPacket(packetType uint8, streamId uint32, payload []byte) []byte 
 func parseWispPacket(packet []byte) (uint8, uint32, []byte) {
 	packetType := packet[0]
 	streamId := binary.LittleEndian.Uint32(packet[1:5])
-	payload := make([]byte, len(packet)-5)
-	copy(payload, packet[5:])
+	payload := slices.Clone(packet[5:])
 	return packetType, streamId, payload
 }

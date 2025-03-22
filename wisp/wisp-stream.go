@@ -3,6 +3,7 @@ package wisp
 import (
 	"io"
 	"net"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -129,14 +130,7 @@ func (s *wispStream) readFromConnection() {
 			break
 		}
 
-		var data []byte
-		if 2*n < s.wispConn.config.TcpBufferSize {
-			data = make([]byte, n)
-			copy(data, buffer[:n])
-		} else {
-			data = buffer[:n]
-			buffer = make([]byte, s.wispConn.config.TcpBufferSize)
-		}
+		data := slices.Clone(buffer[:n])
 
 		<-prevSent
 		go func() {

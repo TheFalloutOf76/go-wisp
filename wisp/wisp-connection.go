@@ -16,6 +16,14 @@ type wispConnection struct {
 	config *Config
 }
 
+func (c *wispConnection) init() {
+	c.sendContinuePacket(0, c.config.BufferRemainingLength)
+}
+
+func (c *wispConnection) close() {
+	c.wsConn.NetConn().Close()
+}
+
 func (c *wispConnection) handlePacket(packetType uint8, streamId uint32, payload []byte) {
 	switch packetType {
 	case packetTypeConnect:
@@ -88,7 +96,7 @@ func (c *wispConnection) handleClosePacket(streamId uint32, payload []byte) {
 func (c *wispConnection) sendPacket(packetType uint8, streamId uint32, payload []byte) {
 	packet := createWispPacket(packetType, streamId, payload)
 	if err := c.wsConn.WriteMessage(gws.OpcodeBinary, packet); err != nil {
-		c.wsConn.NetConn().Close()
+		c.close()
 	}
 }
 
