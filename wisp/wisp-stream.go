@@ -18,7 +18,6 @@ type wispStream struct {
 
 	dataQueue chan []byte
 
-	ready           atomic.Bool
 	connEstablished chan bool
 
 	sendDataOnce sync.Once
@@ -62,7 +61,6 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	}
 
 	s.connEstablished <- true
-	s.ready.Store(true)
 
 	go s.readFromConnection()
 }
@@ -107,7 +105,7 @@ func (s *wispStream) sendClose(reason uint8) {
 }
 
 func (s *wispStream) closeConnection() {
-	if s.ready.Load() {
+	if s.conn != nil {
 		s.conn.Close()
 	}
 }
