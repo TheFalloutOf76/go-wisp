@@ -5,7 +5,6 @@ import (
 	"net"
 	"slices"
 	"sync"
-	"sync/atomic"
 )
 
 type wispStream struct {
@@ -23,7 +22,8 @@ type wispStream struct {
 	sendDataOnce sync.Once
 	closeOnce    sync.Once
 
-	isOpen atomic.Bool
+	isOpen      bool
+	isOpenMutex sync.RWMutex
 }
 
 func (s *wispStream) handleConnect(streamType uint8, port string, hostname string) {
@@ -146,7 +146,9 @@ func (s *wispStream) close(reason uint8) {
 
 		s.closeConnection()
 
-		s.isOpen.Store(false)
+		s.isOpenMutex.Lock()
+		s.isOpen = false
+		s.isOpenMutex.Unlock()
 		close(s.dataQueue)
 
 		select {
