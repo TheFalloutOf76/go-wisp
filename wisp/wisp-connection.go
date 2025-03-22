@@ -119,13 +119,16 @@ func (c *wispConnection) sendClosePacket(streamId uint32, reason uint8) {
 	c.sendPacket(packetTypeClose, streamId, payload)
 }
 
+func (c *wispConnection) deleteWispStream(streamId uint32) {
+	c.streams.Delete(streamId)
+}
+
 func (c *wispConnection) deleteAllWispStreams() {
-	c.streams.Range(func(key, value any) bool {
-		stream, ok := value.(*wispStream)
+	for _, streamAny := range c.streams.Range {
+		stream, ok := streamAny.(*wispStream)
 		if !ok {
-			return true
+			continue
 		}
 		stream.close(closeReasonUnspecified)
-		return true
-	})
+	}
 }

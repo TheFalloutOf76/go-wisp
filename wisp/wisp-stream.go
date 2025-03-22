@@ -142,13 +142,14 @@ func (s *wispStream) readFromConnection() {
 
 func (s *wispStream) close(reason uint8) {
 	s.closeOnce.Do(func() {
-		s.wispConn.streams.Delete(s.streamId)
+		s.wispConn.deleteWispStream(s.streamId)
 
 		s.closeConnection()
 
 		s.isOpenMutex.Lock()
 		s.isOpen = false
 		s.isOpenMutex.Unlock()
+
 		close(s.dataQueue)
 
 		select {
