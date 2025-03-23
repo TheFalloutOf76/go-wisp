@@ -41,7 +41,7 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	switch streamType {
 	case streamTypeTCP:
 		if s.wispConn.config.Proxy != "" {
-			dialer, proxyErr := proxy.SOCKS5("tcp", s.wispConn.config.Proxy, nil, nil)
+			dialer, proxyErr := proxy.SOCKS5("tcp", s.wispConn.config.Proxy, nil, proxy.Direct)
 			if proxyErr != nil {
 				s.close(closeReasonNetworkError)
 				return
