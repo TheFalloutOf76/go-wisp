@@ -7,14 +7,15 @@ import (
 )
 
 type Config struct {
+	DisableUDP            bool
+	TcpBufferSize         int
 	BufferRemainingLength uint32
+	TcpNoDelay            bool
+	WebsocketTcpNoDelay   bool
 	Blacklist             struct {
 		Hostnames map[string]struct{}
 	}
-	DisableUDP          bool
-	TcpBufferSize       int
-	TcpNoDelay          bool
-	WebsocketTcpNoDelay bool
+	Proxy string
 }
 
 func CreateWispHandler(config *Config) http.HandlerFunc {

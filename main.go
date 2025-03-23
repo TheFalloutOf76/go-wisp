@@ -12,10 +12,12 @@ import (
 )
 
 type Config struct {
-	BufferRemainingLength uint32 `json:"bufferRemainingLength"`
+	Port                  string `json:"port"`
 	DisableUDP            bool   `json:"disableUDP"`
 	TcpBufferSize         int    `json:"tcpBufferSize"`
+	BufferRemainingLength uint32 `json:"bufferRemainingLength"`
 	TcpNoDelay            bool   `json:"tcpNoDelay"`
+	WebsocketTcpNoDelay   bool   `json:"websocketTcpNoDelay"`
 	Blacklist             struct {
 		Hostnames struct {
 			FetchFromUrl string   `json:"fetchFromUrl"`
@@ -23,8 +25,7 @@ type Config struct {
 			Exclude      []string `json:"exclude"`
 		} `json:"hostnames"`
 	} `json:"blacklist"`
-	Port                string `json:"port"`
-	WebsocketTcpNoDelay bool   `json:"websocketTcpNoDelay"`
+	Proxy string `json:"proxy"`
 }
 
 func getBlocklistFromUrl(url string) (map[string]struct{}, error) {
@@ -89,16 +90,17 @@ func createWispConfig(cfg Config) *wisp.Config {
 	}
 
 	return &wisp.Config{
+		DisableUDP:            cfg.DisableUDP,
+		TcpBufferSize:         cfg.TcpBufferSize,
 		BufferRemainingLength: cfg.BufferRemainingLength,
+		TcpNoDelay:            cfg.TcpNoDelay,
+		WebsocketTcpNoDelay:   cfg.WebsocketTcpNoDelay,
 		Blacklist: struct {
 			Hostnames map[string]struct{}
 		}{
 			Hostnames: blocklist,
 		},
-		DisableUDP:          cfg.DisableUDP,
-		TcpBufferSize:       cfg.TcpBufferSize,
-		TcpNoDelay:          cfg.TcpNoDelay,
-		WebsocketTcpNoDelay: cfg.WebsocketTcpNoDelay,
+		Proxy: cfg.Proxy,
 	}
 }
 

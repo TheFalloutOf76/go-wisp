@@ -1,8 +1,10 @@
 {
-    "bufferRemainingLength": 256,
+    "port": "8080",
     "disableUDP": true,
     "tcpBufferSize": 8192,
+    "bufferRemainingLength": 256,
     "tcpNoDelay": false,
+    "websocketTcpNoDelay": false,
     "blacklist": {
         "hostnames": {
             "fetchFromUrl": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt",
@@ -10,6 +12,5 @@
             "exclude": []
         }
     },
-    "port": "8080",
-    "websocketTcpNoDelay": false
+    "proxy": ""
 }

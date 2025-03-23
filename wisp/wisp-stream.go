@@ -5,6 +5,8 @@ import (
 	"net"
 	"slices"
 	"sync"
+
+	"golang.org/x/net/proxy"
 )
 
 type wispStream struct {
@@ -38,9 +40,18 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	var err error
 	switch streamType {
 	case streamTypeTCP:
-		s.conn, err = net.Dial("tcp", net.JoinHostPort(hostname, port))
+		if s.wispConn.config.Proxy != "" {
+			dialer, proxyErr := proxy.SOCKS5("tcp", s.wispConn.config.Proxy, nil, nil)
+			if proxyErr != nil {
+				s.close(closeReasonNetworkError)
+				return
+			}
+			s.conn, err = dialer.Dial("tcp", net.JoinHostPort(hostname, port))
+		} else {
+			s.conn, err = net.Dial("tcp", net.JoinHostPort(hostname, port))
+		}
 	case streamTypeUDP:
-		if s.wispConn.config.DisableUDP {
+		if s.wispConn.config.DisableUDP || s.wispConn.config.Proxy != "" {
 			s.close(closeReasonBlocked)
 			return
 		}
