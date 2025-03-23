@@ -125,10 +125,7 @@ func (c *wispConnection) deleteWispStream(streamId uint32) {
 
 func (c *wispConnection) deleteAllWispStreams() {
 	for _, streamAny := range c.streams.Range {
-		stream, ok := streamAny.(*wispStream)
-		if !ok {
-			continue
-		}
+		stream := streamAny.(*wispStream)
 		stream.close(closeReasonUnspecified)
 	}
 }
