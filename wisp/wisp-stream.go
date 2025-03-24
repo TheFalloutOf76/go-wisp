@@ -36,10 +36,12 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	s.streamType = streamType
 	s.bufferRemaining = s.wispConn.config.BufferRemainingLength
 
+	destination := net.JoinHostPort(hostname, port)
+
+	netDialer := net.Dial
 	var err error
 	switch streamType {
 	case streamTypeTCP:
-		var netDialer func(network, address string) (net.Conn, error)
 		if s.wispConn.config.Proxy != "" {
 			dialer, proxyErr := proxy.SOCKS5("tcp", s.wispConn.config.Proxy, nil, proxy.Direct)
 			if proxyErr != nil {
@@ -47,16 +49,14 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 				return
 			}
 			netDialer = dialer.Dial
-		} else {
-			netDialer = net.Dial
 		}
-		s.conn, err = netDialer("tcp", net.JoinHostPort(hostname, port))
+		s.conn, err = netDialer("tcp", destination)
 	case streamTypeUDP:
 		if s.wispConn.config.DisableUDP || s.wispConn.config.Proxy != "" {
 			s.close(closeReasonBlocked)
 			return
 		}
-		s.conn, err = net.Dial("udp", net.JoinHostPort(hostname, port))
+		s.conn, err = netDialer("udp", destination)
 	default:
 		s.close(closeReasonInvalidInfo)
 		return
