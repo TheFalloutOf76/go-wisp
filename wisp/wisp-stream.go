@@ -166,10 +166,6 @@ func (s *wispStream) close(reason uint8) {
 
 	close(s.dataQueue)
 
-	select {
-	case s.connEstablished <- false:
-	default:
-	}
 	close(s.connEstablished)
 
 	s.sendClose(reason)
