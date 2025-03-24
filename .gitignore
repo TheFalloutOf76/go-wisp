@@ -1,2 +1,3 @@
 *.exe
 *_test.go
+*.prof
