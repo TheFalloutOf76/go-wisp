@@ -55,7 +55,11 @@ func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 	stream.isOpen = true
 	stream.isOpenMutex.Unlock()
 
-	c.streams.Store(streamId, stream)
+	_, loaded := c.streams.LoadOrStore(streamId, stream)
+	if loaded {
+		stream.close(closeReasonInvalidInfo)
+		return
+	}
 
 	go stream.handleConnect(streamType, port, hostname)
 }
