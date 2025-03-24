@@ -22,7 +22,6 @@ type wispStream struct {
 	connEstablished chan bool
 
 	sendDataOnce sync.Once
-	closeOnce    sync.Once
 
 	isOpen      bool
 	isOpenMutex sync.RWMutex
@@ -152,23 +151,24 @@ func (s *wispStream) readFromConnection() {
 }
 
 func (s *wispStream) close(reason uint8) {
-	s.closeOnce.Do(func() {
-		s.wispConn.deleteWispStream(s.streamId)
+	s.isOpenMutex.Lock()
+	defer s.isOpenMutex.Unlock()
+	if !s.isOpen {
+		return
+	}
+	s.isOpen = false
 
-		s.closeConnection()
+	s.wispConn.deleteWispStream(s.streamId)
 
-		s.isOpenMutex.Lock()
-		s.isOpen = false
-		s.isOpenMutex.Unlock()
+	s.closeConnection()
 
-		close(s.dataQueue)
+	close(s.dataQueue)
 
-		select {
-		case s.connEstablished <- false:
-		default:
-		}
-		close(s.connEstablished)
+	select {
+	case s.connEstablished <- false:
+	default:
+	}
+	close(s.connEstablished)
 
-		s.sendClose(reason)
-	})
+	s.sendClose(reason)
 }

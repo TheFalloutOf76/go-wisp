@@ -50,10 +50,8 @@ func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 		streamId:        streamId,
 		connEstablished: make(chan bool, 1),
 		dataQueue:       make(chan []byte, c.config.BufferRemainingLength),
+		isOpen:          true,
 	}
-	stream.isOpenMutex.Lock()
-	stream.isOpen = true
-	stream.isOpenMutex.Unlock()
 
 	_, loaded := c.streams.LoadOrStore(streamId, stream)
 	if loaded {
