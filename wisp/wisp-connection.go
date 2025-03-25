@@ -55,7 +55,6 @@ func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 
 	_, loaded := c.streams.LoadOrStore(streamId, stream)
 	if loaded {
-		go stream.close(closeReasonInvalidInfo)
 		return
 	}
 
