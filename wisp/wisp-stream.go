@@ -154,11 +154,11 @@ func (s *wispStream) readFromConnection() {
 
 func (s *wispStream) close(reason uint8) {
 	s.isOpenMutex.Lock()
-	defer s.isOpenMutex.Unlock()
 	if !s.isOpen {
 		return
 	}
 	s.isOpen = false
+	s.isOpenMutex.Unlock()
 
 	s.wispConn.deleteWispStream(s.streamId)
 
