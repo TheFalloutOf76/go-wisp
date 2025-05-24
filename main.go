@@ -25,7 +25,8 @@ type Config struct {
 			Exclude      []string `json:"exclude"`
 		} `json:"hostnames"`
 	} `json:"blacklist"`
-	Proxy string `json:"proxy"`
+	Proxy                      string `json:"proxy"`
+	WebsocketPermessageDeflate bool   `json:"websocketPermessageDeflate"`
 }
 
 func getBlocklistFromUrl(url string) (map[string]struct{}, error) {
@@ -100,7 +101,8 @@ func createWispConfig(cfg Config) *wisp.Config {
 		}{
 			Hostnames: blocklist,
 		},
-		Proxy: cfg.Proxy,
+		Proxy:                      cfg.Proxy,
+		WebsocketPermessageDeflate: cfg.WebsocketPermessageDeflate,
 	}
 }
 

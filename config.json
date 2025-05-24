@@ -1,7 +1,7 @@
 {
     "port": "8080",
     "disableUDP": true,
-    "tcpBufferSize": 8192,
+    "tcpBufferSize": 131072,
     "bufferRemainingLength": 256,
     "tcpNoDelay": false,
     "websocketTcpNoDelay": false,
@@ -12,5 +12,6 @@
             "exclude": []
         }
     },
-    "proxy": ""
+    "proxy": "",
+    "websocketPermessageDeflate": true
 }

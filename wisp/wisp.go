@@ -15,7 +15,8 @@ type Config struct {
 	Blacklist             struct {
 		Hostnames map[string]struct{}
 	}
-	Proxy string
+	Proxy                      string
+	WebsocketPermessageDeflate bool
 }
 
 func CreateWispHandler(config *Config) http.HandlerFunc {
@@ -23,7 +24,10 @@ func CreateWispHandler(config *Config) http.HandlerFunc {
 		handler := &handler{}
 
 		upgrader := gws.NewUpgrader(handler, &gws.ServerOption{
-			PermessageDeflate: gws.PermessageDeflate{Enabled: true},
+			PermessageDeflate: gws.PermessageDeflate{
+				Enabled: config.WebsocketPermessageDeflate,
+				// todo: add configuration support for other compression options
+			},
 		})
 
 		wsConn, err := upgrader.Upgrade(w, r)
