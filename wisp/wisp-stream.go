@@ -1,6 +1,7 @@
 package wisp
 
 import (
+	"context"
 	"io"
 	"net"
 	"slices"
@@ -31,6 +32,29 @@ func (s *wispStream) handleConnect(streamType uint8, port string, hostname strin
 	if _, blacklisted := s.wispConn.config.Blacklist.Hostnames[hostname]; blacklisted {
 		s.close(closeReasonBlocked)
 		return
+	}
+
+	var resolvedHostname string = hostname
+	if _, whitelisted := s.wispConn.config.Whitelist.Hostnames[hostname]; !whitelisted && s.wispConn.config.DnsServer != "" {
+		resolver := net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{}
+				return d.DialContext(ctx, "udp", s.wispConn.config.DnsServer)
+			},
+		}
+
+		ips, err := resolver.LookupIPAddr(context.Background(), hostname)
+		if err != nil {
+			s.close(closeReasonUnreachable)
+			return
+		}
+
+		resolvedHostname = ips[0].IP.String()
+		if resolvedHostname == "0.0.0.0" || resolvedHostname == "::" {
+			s.close(closeReasonBlocked)
+			return
+		}
 	}
 
 	s.streamType = streamType

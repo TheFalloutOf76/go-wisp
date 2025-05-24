@@ -6,12 +6,12 @@
     "tcpNoDelay": false,
     "websocketTcpNoDelay": false,
     "blacklist": {
-        "hostnames": {
-            "fetchFromUrl": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt",
-            "include": [],
-            "exclude": []
-        }
+        "hostnames": []
+    },
+    "whitelist": {
+        "hostnames": []
     },
     "proxy": "",
-    "websocketPermessageDeflate": false
+    "websocketPermessageDeflate": false,
+    "dnsServer": "94.140.14.14:53"
 }

@@ -15,8 +15,12 @@ type Config struct {
 	Blacklist             struct {
 		Hostnames map[string]struct{}
 	}
+	Whitelist struct {
+		Hostnames map[string]struct{}
+	}
 	Proxy                      string
 	WebsocketPermessageDeflate bool
+	DnsServer                  string
 }
 
 func CreateWispHandler(config *Config) http.HandlerFunc {

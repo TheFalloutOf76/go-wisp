@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"go-wisp/wisp"
 )
@@ -19,40 +17,14 @@ type Config struct {
 	TcpNoDelay            bool   `json:"tcpNoDelay"`
 	WebsocketTcpNoDelay   bool   `json:"websocketTcpNoDelay"`
 	Blacklist             struct {
-		Hostnames struct {
-			FetchFromUrl string   `json:"fetchFromUrl"`
-			Include      []string `json:"include"`
-			Exclude      []string `json:"exclude"`
-		} `json:"hostnames"`
+		Hostnames []string `json:"hostnames"`
 	} `json:"blacklist"`
+	Whitelist struct {
+		Hostnames []string `json:"hostnames"`
+	} `json:"whitelist"`
 	Proxy                      string `json:"proxy"`
 	WebsocketPermessageDeflate bool   `json:"websocketPermessageDeflate"`
-}
-
-func getBlocklistFromUrl(url string) (map[string]struct{}, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to fetch blocklist, status code: %d", resp.StatusCode)
-	}
-
-	scanner := bufio.NewScanner(resp.Body)
-	blocklist := make(map[string]struct{})
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		blocklist[line] = struct{}{}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return blocklist, nil
+	DnsServer                  string `json:"dnsServer"`
 }
 
 func loadConfig(filename string) (Config, error) {
@@ -71,23 +43,14 @@ func loadConfig(filename string) (Config, error) {
 }
 
 func createWispConfig(cfg Config) *wisp.Config {
-	blocklist := make(map[string]struct{})
-	fetchURL := cfg.Blacklist.Hostnames.FetchFromUrl
-	if fetchURL != "" {
-		bl, err := getBlocklistFromUrl(fetchURL)
-		if err != nil {
-			fmt.Printf("failed to fetch blocklist from URL: %v\n", err)
-		} else {
-			blocklist = bl
-		}
+	blacklistedHostnames := make(map[string]struct{})
+	for _, host := range cfg.Blacklist.Hostnames {
+		blacklistedHostnames[host] = struct{}{}
 	}
 
-	for _, host := range cfg.Blacklist.Hostnames.Include {
-		blocklist[host] = struct{}{}
-	}
-
-	for _, host := range cfg.Blacklist.Hostnames.Exclude {
-		delete(blocklist, host)
+	whitelistedHostnames := make(map[string]struct{})
+	for _, host := range cfg.Whitelist.Hostnames {
+		whitelistedHostnames[host] = struct{}{}
 	}
 
 	return &wisp.Config{
@@ -99,10 +62,16 @@ func createWispConfig(cfg Config) *wisp.Config {
 		Blacklist: struct {
 			Hostnames map[string]struct{}
 		}{
-			Hostnames: blocklist,
+			Hostnames: blacklistedHostnames,
+		},
+		Whitelist: struct {
+			Hostnames map[string]struct{}
+		}{
+			Hostnames: whitelistedHostnames,
 		},
 		Proxy:                      cfg.Proxy,
 		WebsocketPermessageDeflate: cfg.WebsocketPermessageDeflate,
+		DnsServer:                  cfg.DnsServer,
 	}
 }
 
