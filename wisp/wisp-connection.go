@@ -59,6 +59,8 @@ func (c *wispConnection) handleConnectPacket(streamId uint32, payload []byte) {
 	}
 
 	go stream.handleConnect(streamType, port, hostname)
+
+	go stream.handleData()
 }
 
 func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
@@ -79,8 +81,6 @@ func (c *wispConnection) handleDataPacket(streamId uint32, payload []byte) {
 	case stream.dataQueue <- payload:
 	default:
 	}
-
-	go stream.sendDataOnce.Do(stream.handleData)
 }
 
 func (c *wispConnection) handleClosePacket(streamId uint32, payload []byte) {

@@ -21,8 +21,6 @@ type wispStream struct {
 
 	connEstablished chan bool
 
-	sendDataOnce sync.Once
-
 	isOpen      bool
 	isOpenMutex sync.RWMutex
 }
