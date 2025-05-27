@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"slices"
 	"sync"
 
 	"golang.org/x/net/proxy"
@@ -149,11 +148,26 @@ func (s *wispStream) closeConnection() {
 func (s *wispStream) readFromConnection() {
 	var closeReason uint8
 
-	buffer := make([]byte, s.wispConn.config.TcpBufferSize)
+	dataChan := make(chan []byte)
+	defer close(dataChan)
+	go func() {
+		for data := range dataChan {
+			s.sendData(data)
+		}
+	}()
 
-	prevSent := make(chan struct{}, 1)
-	prevSent <- struct{}{}
+	isEven := true
+	buffer1 := make([]byte, s.wispConn.config.TcpBufferSize)
+	buffer2 := make([]byte, s.wispConn.config.TcpBufferSize)
+
 	for {
+		var buffer []byte
+		if isEven {
+			buffer = buffer1
+		} else {
+			buffer = buffer2
+		}
+
 		n, err := s.conn.Read(buffer)
 		if err != nil {
 			if err == io.EOF {
@@ -164,13 +178,9 @@ func (s *wispStream) readFromConnection() {
 			break
 		}
 
-		data := slices.Clone(buffer[:n])
+		dataChan <- buffer[:n]
 
-		<-prevSent
-		go func() {
-			s.sendData(data)
-			prevSent <- struct{}{}
-		}()
+		isEven = !isEven
 	}
 
 	s.close(closeReason)
