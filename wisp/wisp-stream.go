@@ -17,9 +17,8 @@ type wispStream struct {
 	conn            net.Conn
 	bufferRemaining uint32
 
-	dataQueue chan []byte
-
 	connEstablished chan bool
+	dataQueue       chan []byte
 
 	isOpen      bool
 	isOpenMutex sync.RWMutex
@@ -186,11 +185,11 @@ func (s *wispStream) readFromConnection() {
 
 func (s *wispStream) close(reason uint8) {
 	s.isOpenMutex.Lock()
+	defer s.isOpenMutex.Unlock()
 	if !s.isOpen {
 		return
 	}
 	s.isOpen = false
-	s.isOpenMutex.Unlock()
 
 	s.wispConn.deleteWispStream(s.streamId)
 
